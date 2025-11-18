@@ -1,0 +1,5 @@
+{
+  "name": "Analisador de Palavras-Chave com IA",
+  "description": "Uma ferramenta que utiliza IA para analisar um site e gerar palavras-chave primárias, secundárias e de cauda longa, juntamente com volume de busca estimado e dificuldade.",
+  "requestFramePermissions": []
+}
