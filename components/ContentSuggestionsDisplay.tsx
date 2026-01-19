@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { ContentSuggestions, ContentSuggestion } from '../types.ts';
-import { DocumentTextIcon, SparklesIcon } from './Icons.tsx';
+import { DocumentTextIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from './Icons.tsx';
 
 interface ContentSuggestionsDisplayProps {
   suggestions: ContentSuggestions;
@@ -74,43 +74,64 @@ const FunnelSection: React.FC<{
 );
 
 const ContentSuggestionsDisplay: React.FC<ContentSuggestionsDisplayProps> = ({ suggestions, onStructureRequest }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   if (!suggestions) return null;
 
-  return (
-    <div className="space-y-8 mt-12">
-        <div className="flex items-center gap-3 mb-2">
-            <div className="bg-indigo-500/10 p-2 rounded-lg">
-                 <DocumentTextIcon className="h-6 w-6 text-indigo-400" />
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-white">Sugestões de Pauta para Blog</h2>
-        </div>
-        <p className="text-gray-400 max-w-3xl -mt-4 mb-8">
-            Estratégia de conteúdo completa cobrindo todas as etapas da jornada do cliente, do descobrimento à decisão de compra.
-        </p>
+  const totalSuggestions = (suggestions.topOfFunnel?.length || 0) + (suggestions.middleOfFunnel?.length || 0) + (suggestions.bottomOfFunnel?.length || 0);
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <FunnelSection 
-                title="Topo de Funil" 
-                description="Atração e Aprendizado. Foco em resolver dúvidas gerais e educar o público."
-                items={suggestions.topOfFunnel}
-                badgeColor="text-green-400 bg-green-400"
-                onStructure={onStructureRequest}
-            />
-            <FunnelSection 
-                title="Meio de Funil" 
-                description="Consideração. Foco em mostrar soluções e comparar opções."
-                items={suggestions.middleOfFunnel}
-                badgeColor="text-yellow-400 bg-yellow-400"
-                onStructure={onStructureRequest}
-            />
-            <FunnelSection 
-                title="Fundo de Funil" 
-                description="Decisão. Foco em convencer o lead de que sua solução é a melhor."
-                items={suggestions.bottomOfFunnel}
-                badgeColor="text-red-400 bg-red-400"
-                onStructure={onStructureRequest}
-            />
-        </div>
+  return (
+    <div className="space-y-8 mt-12 transition-all duration-300">
+        <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-between group p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl hover:bg-indigo-500/10 transition-colors"
+        >
+            <div className="flex items-center gap-3">
+                <div className="bg-indigo-500/10 p-2 rounded-lg group-hover:bg-indigo-500/20 transition-colors">
+                    <DocumentTextIcon className="h-6 w-6 text-indigo-400" />
+                </div>
+                <div className="text-left">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white group-hover:text-indigo-400 transition-colors">Sugestões de Pauta para Blog</h2>
+                        {!isExpanded && (
+                            <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full border border-indigo-500/30">
+                                {totalSuggestions} sugestões
+                            </span>
+                        )}
+                    </div>
+                    {isExpanded && <p className="text-gray-400 max-w-3xl mt-1 text-sm sm:text-base">Estratégia completa do descobrimento à decisão de compra.</p>}
+                </div>
+            </div>
+            <div className="text-gray-500 group-hover:text-white transition-colors">
+                {isExpanded ? <ChevronUpIcon className="w-8 h-8" /> : <ChevronDownIcon className="w-8 h-8" />}
+            </div>
+        </button>
+
+        {isExpanded && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                <FunnelSection 
+                    title="Topo de Funil" 
+                    description="Atração e Aprendizado. Foco em resolver dúvidas gerais e educar o público."
+                    items={suggestions.topOfFunnel}
+                    badgeColor="text-green-400 bg-green-400"
+                    onStructure={onStructureRequest}
+                />
+                <FunnelSection 
+                    title="Meio de Funil" 
+                    description="Consideração. Foco em mostrar soluções e comparar opções."
+                    items={suggestions.middleOfFunnel}
+                    badgeColor="text-yellow-400 bg-yellow-400"
+                    onStructure={onStructureRequest}
+                />
+                <FunnelSection 
+                    title="Fundo de Funil" 
+                    description="Decisão. Foco em convencer o lead de que sua solução é a melhor."
+                    items={suggestions.bottomOfFunnel}
+                    badgeColor="text-red-400 bg-red-400"
+                    onStructure={onStructureRequest}
+                />
+            </div>
+        )}
     </div>
   );
 };
