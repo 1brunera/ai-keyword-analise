@@ -26,15 +26,15 @@ export interface ContentSuggestion {
 }
 
 export interface ContentSuggestions {
-    topOfFunnel: ContentSuggestion[];
-    middleOfFunnel: ContentSuggestion[];
-    bottomOfFunnel: ContentSuggestion[];
+    topOfFunnel?: ContentSuggestion[];
+    middleOfFunnel?: ContentSuggestion[];
+    bottomOfFunnel?: ContentSuggestion[];
 }
 
 export interface AnalysisResult {
     keywordResults: KeywordResults;
     businessAnalysis: BusinessAnalysis;
-    contentSuggestions: ContentSuggestions;
+    contentSuggestions?: ContentSuggestions;
 }
 
 export interface HistoryEntry {

@@ -1,29 +1,42 @@
 
 import React, { useState } from 'react';
-import type { KeywordResults } from '../types.ts';
+import type { KeywordResults, ContentSuggestions, ContentSuggestion, FunnelStage } from '../types.ts';
 import KeywordTable from './KeywordTable.tsx';
+import ContentSuggestionsDisplay from './ContentSuggestionsDisplay.tsx';
 
 interface ResultsDisplayProps {
   results: KeywordResults;
+  suggestions?: ContentSuggestions;
   onClusterRequest: (keyword: string) => void;
+  onStructureRequest: (suggestion: ContentSuggestion) => void;
+  onGenerateSuggestions: (stage: FunnelStage) => void;
+  loadingStages: Record<FunnelStage, boolean>;
 }
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onClusterRequest }) => {
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ 
+    results, 
+    suggestions, 
+    onClusterRequest, 
+    onStructureRequest, 
+    onGenerateSuggestions,
+    loadingStages
+}) => {
   const [showPrimary, setShowPrimary] = useState(true);
   const [showSecondary, setShowSecondary] = useState(true);
   const [showLongTail, setShowLongTail] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(true);
 
   return (
     <div className="space-y-8">
-      {/* Filtros de Visualização */}
-      <div className="flex flex-wrap items-center gap-3 p-4 bg-gray-900/50 border border-gray-800 rounded-xl">
-        <span className="text-sm font-medium text-gray-400 mr-2">Visualizar seções:</span>
+      {/* Filtros de Visualização Global */}
+      <div className="sticky top-4 z-30 flex flex-wrap items-center gap-3 p-4 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-xl shadow-lg">
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 mr-2">Filtros de Exibição:</span>
         <button 
             onClick={() => setShowPrimary(!showPrimary)}
             className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                 showPrimary 
                 ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' 
-                : 'bg-gray-800 text-gray-500 border-gray-700'
+                : 'bg-gray-900 text-gray-600 border-gray-800'
             }`}
         >
             {showPrimary ? '●' : '○'} Primárias
@@ -33,7 +46,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onClusterReque
             className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                 showSecondary 
                 ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' 
-                : 'bg-gray-800 text-gray-500 border-gray-700'
+                : 'bg-gray-900 text-gray-600 border-gray-800'
             }`}
         >
             {showSecondary ? '●' : '○'} Secundárias
@@ -43,10 +56,21 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onClusterReque
             className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                 showLongTail 
                 ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' 
-                : 'bg-gray-800 text-gray-500 border-gray-700'
+                : 'bg-gray-900 text-gray-600 border-gray-800'
             }`}
         >
             {showLongTail ? '●' : '○'} Cauda Longa
+        </button>
+        <div className="w-px h-4 bg-gray-800 mx-1 hidden sm:block"></div>
+        <button 
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
+                showSuggestions 
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
+                : 'bg-gray-900 text-gray-600 border-gray-800'
+            }`}
+        >
+            {showSuggestions ? '★' : '☆'} Sugestões de Pauta
         </button>
       </div>
 
@@ -71,6 +95,15 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onClusterReque
                 title="Palavras-Chave de Cauda Longa"
                 description="Consultas de pesquisa mais longas e detalhadas, muitas vezes com alta intenção de conversão."
                 keywords={results.longTailKeywords}
+            />
+        )}
+
+        {showSuggestions && (
+            <ContentSuggestionsDisplay 
+                suggestions={suggestions} 
+                onStructureRequest={onStructureRequest}
+                onGenerateRequest={onGenerateSuggestions}
+                loadingStages={loadingStages}
             />
         )}
       </div>

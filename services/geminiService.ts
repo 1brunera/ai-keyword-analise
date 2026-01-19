@@ -1,26 +1,40 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AnalysisResult, TopicClusterResult, ArticleStructure } from '../types.ts';
+import type { AnalysisResult, TopicClusterResult, ArticleStructure, ContentSuggestion, FunnelStage } from '../types.ts';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+const SYSTEM_INSTRUCTION = `Você é um Engenheiro de SEO Sênior e Estrategista de Conteúdo. 
+Sua especialidade é analisar sites e extrair intenções de busca valiosas.
+Ao receber uma URL, use a ferramenta de busca para entender o negócio.
+Sempre retorne dados no formato JSON estrito conforme o esquema fornecido.
+Se alguma informação for impossível de determinar, use sua base de conhecimento para sugerir termos altamente relevantes ao nicho identificado.`;
+
 export const analyzeUrlForKeywords = async (url: string, businessContext: string): Promise<AnalysisResult> => {
   try {
-    const contextPrompt = businessContext ? `Contexto do Negócio: ${businessContext}` : '';
+    const contextPrompt = businessContext ? `CONTEXTO ADICIONAL DO NEGÓCIO: ${businessContext}` : '';
 
     const prompt = `
-        Realize uma análise de SEO para a URL: ${url}.
+        ANALISE A URL: ${url}
         ${contextPrompt}
         
-        Gere exatamente 15 palavras-chave primárias, 15 secundárias e 15 de cauda longa.
-        Gere exatamente 10 sugestões de pauta para cada etapa do funil (topo, meio, fundo).
-        Baseie-se no conteúdo real da página e no contexto fornecido.
+        TAREFAS:
+        1. Resuma o negócio, público e tom de voz.
+        2. Identifique exatamente 10 palavras-chave primárias (alto volume, competitivas).
+        3. Identifique exatamente 10 palavras-chave secundárias (específicas).
+        4. Identifique exatamente 10 palavras-chave de cauda longa (conversão).
+
+        REQUISITOS TÉCNICOS:
+        - Use a ferramenta googleSearch para ler o conteúdo da URL.
+        - Se o site estiver inacessível, baseie-se no nome do domínio e no contexto fornecido.
+        - Garanta que o JSON seja válido e completo.
     `;
 
     const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
             tools: [{googleSearch: {}}],
             responseMimeType: "application/json",
             responseSchema: {
@@ -44,7 +58,7 @@ export const analyzeUrlForKeywords = async (url: string, businessContext: string
                                     type: Type.OBJECT,
                                     properties: {
                                         keyword: { type: Type.STRING },
-                                        intent: { type: Type.STRING, description: "Transacional, Informativa, Comercial ou Navegacional" },
+                                        intent: { type: Type.STRING },
                                         difficulty: { type: Type.NUMBER },
                                         volume: { type: Type.NUMBER }
                                     },
@@ -79,57 +93,72 @@ export const analyzeUrlForKeywords = async (url: string, businessContext: string
                             }
                         },
                         required: ["primaryKeywords", "secondaryKeywords", "longTailKeywords"]
-                    },
-                    contentSuggestions: {
-                        type: Type.OBJECT,
-                        properties: {
-                            topOfFunnel: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        title: { type: Type.STRING },
-                                        brief: { type: Type.STRING }
-                                    },
-                                    required: ["title", "brief"]
-                                }
-                            },
-                            middleOfFunnel: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        title: { type: Type.STRING },
-                                        brief: { type: Type.STRING }
-                                    },
-                                    required: ["title", "brief"]
-                                }
-                            },
-                            bottomOfFunnel: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        title: { type: Type.STRING },
-                                        brief: { type: Type.STRING }
-                                    },
-                                    required: ["title", "brief"]
-                                }
-                            }
-                        },
-                        required: ["topOfFunnel", "middleOfFunnel", "bottomOfFunnel"]
                     }
                 },
-                required: ["businessAnalysis", "keywordResults", "contentSuggestions"]
+                required: ["businessAnalysis", "keywordResults"]
             }
         },
     });
 
+    if (!response.text) {
+        throw new Error("A IA retornou uma resposta vazia. Tente novamente com mais contexto.");
+    }
+
     return JSON.parse(response.text) as AnalysisResult;
-  } catch (error) {
-    console.error("Error analyzing URL:", error);
-    throw new Error("Falha na análise. A IA não conseguiu gerar os dados estruturados corretamente.");
+  } catch (error: any) {
+    console.error("Detailed Error in analyzeUrlForKeywords:", error);
+    
+    if (error.message?.includes("safety")) {
+        throw new Error("A análise foi bloqueada por filtros de segurança. Tente uma URL diferente.");
+    }
+    
+    throw new Error("Falha na análise. Verifique a URL e o contexto e tente novamente em alguns instantes.");
   }
+};
+
+export const generateFunnelSuggestions = async (stage: FunnelStage, businessContext: string, businessSummary: string): Promise<ContentSuggestion[]> => {
+    try {
+        const prompt = `
+            Com base neste resumo de negócio: "${businessSummary}".
+            Contexto Adicional: "${businessContext}".
+            
+            Gere exatamente 10 sugestões de pauta para blog focadas na etapa do funil: ${stage}.
+            As sugestões devem ser altamente relevantes e estratégicas para SEO.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                systemInstruction: "Você é um estrategista de conteúdo focado em Inbound Marketing.",
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        suggestions: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    title: { type: Type.STRING },
+                                    brief: { type: Type.STRING }
+                                },
+                                required: ["title", "brief"]
+                            }
+                        }
+                    },
+                    required: ["suggestions"]
+                }
+            }
+        });
+
+        const result = JSON.parse(response.text);
+        return result.suggestions as ContentSuggestion[];
+
+    } catch (error) {
+        console.error("Error generating funnel suggestions:", error);
+        throw new Error(`Erro ao gerar sugestões para ${stage}.`);
+    }
 };
 
 export const generateTopicCluster = async (keyword: string, businessContext: string): Promise<TopicClusterResult> => {
@@ -139,6 +168,7 @@ export const generateTopicCluster = async (keyword: string, businessContext: str
             model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
+                systemInstruction: "Você é um especialista em arquitetura de informação e SEO.",
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -176,6 +206,7 @@ export const generateArticleStructure = async (title: string, brief: string, bus
             model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
+                systemInstruction: "Você é um redator SEO especialista em outlines estruturados.",
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -187,7 +218,7 @@ export const generateArticleStructure = async (title: string, brief: string, bus
                             items: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    level: { type: Type.STRING, description: "H2 ou H3" },
+                                    level: { type: Type.STRING },
                                     heading: { type: Type.STRING },
                                     content_brief: { type: Type.STRING }
                                 },
