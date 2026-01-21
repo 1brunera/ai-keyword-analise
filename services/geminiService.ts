@@ -7,8 +7,27 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const SYSTEM_INSTRUCTION = `Você é um Engenheiro de SEO Sênior e Estrategista de Conteúdo. 
 Sua especialidade é analisar sites e extrair intenções de busca valiosas.
 Ao receber uma URL, use a ferramenta de busca para entender o negócio.
-Sempre retorne dados no formato JSON estrito conforme o esquema fornecido.
-Se alguma informação for impossível de determinar, use sua base de conhecimento para sugerir termos altamente relevantes ao nicho identificado.`;
+IMPORTANTE: Retorne APENAS o JSON puro. Não use blocos de código Markdown (Ex: \`\`\`json). Não inclua textos introdutórios.`;
+
+// Helper function to clean AI response before parsing
+const cleanJsonText = (text: string): string => {
+  let cleaned = text.trim();
+  
+  // Remove markdown code blocks if present (```json or ```)
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/, '');
+  }
+  
+  // Find the first '{' and the last '}' to extract just the JSON object
+  const firstOpenBrace = cleaned.indexOf('{');
+  const lastCloseBrace = cleaned.lastIndexOf('}');
+  
+  if (firstOpenBrace !== -1 && lastCloseBrace !== -1) {
+    cleaned = cleaned.substring(firstOpenBrace, lastCloseBrace + 1);
+  }
+
+  return cleaned.trim();
+};
 
 export const analyzeUrlForKeywords = async (url: string, businessContext: string): Promise<AnalysisResult> => {
   try {
@@ -101,18 +120,20 @@ export const analyzeUrlForKeywords = async (url: string, businessContext: string
     });
 
     if (!response.text) {
-        throw new Error("A IA retornou uma resposta vazia. Tente novamente com mais contexto.");
+        throw new Error("A IA retornou uma resposta vazia.");
     }
 
-    return JSON.parse(response.text) as AnalysisResult;
+    const cleanedText = cleanJsonText(response.text);
+    return JSON.parse(cleanedText) as AnalysisResult;
+
   } catch (error: any) {
-    console.error("Detailed Error in analyzeUrlForKeywords:", error);
+    console.error("Analysis Failed. Raw Error:", error);
     
     if (error.message?.includes("safety")) {
         throw new Error("A análise foi bloqueada por filtros de segurança. Tente uma URL diferente.");
     }
     
-    throw new Error("Falha na análise. Verifique a URL e o contexto e tente novamente em alguns instantes.");
+    throw new Error(`Falha na análise. Verifique a URL e o contexto. (Detalhe: ${error.message})`);
   }
 };
 
@@ -130,7 +151,7 @@ export const generateFunnelSuggestions = async (stage: FunnelStage, businessCont
             model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
-                systemInstruction: "Você é um estrategista de conteúdo focado em Inbound Marketing.",
+                systemInstruction: "Você é um estrategista de conteúdo. Retorne apenas JSON limpo.",
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -152,7 +173,9 @@ export const generateFunnelSuggestions = async (stage: FunnelStage, businessCont
             }
         });
 
-        const result = JSON.parse(response.text);
+        if (!response.text) throw new Error("Resposta vazia da IA");
+        const cleanedText = cleanJsonText(response.text);
+        const result = JSON.parse(cleanedText);
         return result.suggestions as ContentSuggestion[];
 
     } catch (error) {
@@ -168,7 +191,7 @@ export const generateTopicCluster = async (keyword: string, businessContext: str
             model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
-                systemInstruction: "Você é um especialista em arquitetura de informação e SEO.",
+                systemInstruction: "Você é um especialista em arquitetura de informação e SEO. Retorne apenas JSON limpo.",
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -192,7 +215,10 @@ export const generateTopicCluster = async (keyword: string, businessContext: str
                 }
             }
         });
-        return JSON.parse(response.text) as TopicClusterResult;
+        
+        if (!response.text) throw new Error("Resposta vazia da IA");
+        const cleanedText = cleanJsonText(response.text);
+        return JSON.parse(cleanedText) as TopicClusterResult;
     } catch (error) {
         console.error("Error generating cluster:", error);
         throw new Error("Erro ao gerar cluster de tópicos.");
@@ -206,7 +232,7 @@ export const generateArticleStructure = async (title: string, brief: string, bus
             model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
-                systemInstruction: "Você é um redator SEO especialista em outlines estruturados.",
+                systemInstruction: "Você é um redator SEO especialista. Retorne apenas JSON limpo.",
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -231,7 +257,10 @@ export const generateArticleStructure = async (title: string, brief: string, bus
                 }
             }
         });
-        return JSON.parse(response.text) as ArticleStructure;
+
+        if (!response.text) throw new Error("Resposta vazia da IA");
+        const cleanedText = cleanJsonText(response.text);
+        return JSON.parse(cleanedText) as ArticleStructure;
     } catch (error) {
         console.error("Error generating structure:", error);
         throw new Error("Erro ao gerar estrutura do artigo.");

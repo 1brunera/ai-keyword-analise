@@ -76,11 +76,13 @@ function App() {
     try {
         const suggestions = await generateFunnelSuggestions(stage, businessContext, analysisResult.businessAnalysis.summary);
         
-        // Update state immutably
+        // Safety check: Initialize contentSuggestions if it doesn't exist
+        const currentSuggestions = analysisResult.contentSuggestions || {};
+
         const updatedResult: AnalysisResult = {
             ...analysisResult,
             contentSuggestions: {
-                ...analysisResult.contentSuggestions,
+                ...currentSuggestions,
                 [stage === 'Topo' ? 'topOfFunnel' : stage === 'Meio' ? 'middleOfFunnel' : 'bottomOfFunnel']: suggestions
             }
         };
